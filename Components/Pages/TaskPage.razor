@@ -1,0 +1,471 @@
+﻿@page "/tasks"
+
+@using StudentTaskTracker.Models
+@using Microsoft.EntityFrameworkCore
+
+@inject StudentTaskTracker.Data.AppDbContext db
+@inject Blazored.LocalStorage.ILocalStorageService localStorage
+@inject StudentTaskTracker.Services.AuthService authService
+@inject NavigationManager navigation
+@inject IJSRuntime JS
+
+
+<div class="container mt-4">
+
+    <div class="card shadow p-4 @GetThemeClass()">
+        <div class="d-flex bd-highlight">
+            <div class="p-2 flex-grow-1 bd-highlight">
+                <h2 class="mb-4 text-primary">
+                    Student Task Tracker
+                </h2>
+            </div>
+            <div class="p-2 bd-highlight">
+
+                <button class="btn btn-danger"
+                        @onclick="Logout">
+
+                    Logout
+
+                </button>
+
+            </div>
+
+            <div class="p-2 bd-highlight">
+
+                <button class="btn btn-secondary"
+                        @onclick="ToggleTheme">
+
+                    @(isDarkMode ? "☀️ Light Mode" : "🌙 Dark Mode")
+
+                </button>
+
+            </div>
+        </div>
+
+
+        <div class="row g-2 mb-4">
+            @if (!string.IsNullOrEmpty(taskTitleError))
+            {
+                <small class="text-danger">
+                    @taskTitleError
+                </small>
+            }
+            <div class="col-md-4">
+
+                <input class="form-control"
+                       placeholder="Enter task"
+                       @bind="newTaskTitle" />
+
+            </div>
+
+            <div class="col-md-3">
+
+                <input type="date"
+                       class="form-control"
+                       @bind="newTaskDueDate" />
+                @if (!string.IsNullOrEmpty(dueDateError))
+                {
+                    <small class="text-danger">
+                        @dueDateError
+                    </small>
+                }
+
+            </div>
+
+            <div class="col-md-2">
+
+                <select class="form-select"
+                        @bind="newTaskPriority">
+
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+
+                </select>
+
+            </div>
+
+            <div class="col-md-2">
+
+                <button class="btn btn-primary w-100"
+                        @onclick="AddTask">
+
+                    Add Task
+
+                </button>
+
+            </div>
+
+        </div>
+
+<hr />
+        <div class="row text-center mb-4">
+
+            <div class="col-md-4">
+
+                <div class="card p-3 shadow-sm">
+
+                    <h5>Total</h5>
+
+                    <h3>@tasks.Count</h3>
+
+                </div>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <div class="card p-3 shadow-sm">
+
+                    <h5>Completed</h5>
+
+                    <h3>@tasks.Count(t => t.IsCompleted)</h3>
+
+                </div>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <div class="card p-3 shadow-sm">
+
+                    <h5>Pending</h5>
+
+                    <h3>@tasks.Count(t => !t.IsCompleted)</h3>
+
+                </div>
+
+            </div>
+
+        </div>
+<input class="form-control mb-3"
+       placeholder="Search tasks..."
+       @bind="searchText" />
+        <div class="mb-3">
+
+            <button class="btn @(currentFilter == "All"
+                                                    ? "btn-primary"
+                                                    : "btn-outline-primary") me-2"
+                    @onclick='() => currentFilter = "All"'>
+
+                All
+
+            </button>
+
+            <button class="btn @(currentFilter == "Completed"
+                                                    ? "btn-success"
+                                                    : "btn-outline-success") me-2"
+                    @onclick='() => currentFilter = "Completed"'>
+
+                Completed
+
+            </button>
+
+            <button class="btn @(currentFilter == "Pending"
+                                            ? "btn-warning text-dark"
+                                            : "btn-outline-warning") me-2"
+                    @onclick='() => currentFilter = "Pending"'>
+
+                Pending
+
+            </button>
+
+        </div>
+
+@if (FilteredTasks().Any())
+{
+    <ul class="list-group">
+
+        @foreach (var task in FilteredTasks())
+        {
+                <li class="list-group-item d-flex justify-content-between align-items-center p-3">
+
+                <span>
+
+                            @if (editingTask == task)
+                            {
+                                <div class="d-flex flex-column gap-2">
+
+                                    <input class="form-control"
+                                           @bind="editedTitle" />
+
+                                    <input type="date"
+                                           class="form-control"
+                                           @bind="editedDueDate" />
+
+                                    <select class="form-select"
+                                            @bind="editedPriority">
+
+                                        <option value="Low">Low</option>
+                                        <option value="Medium">Medium</option>
+                                        <option value="High">High</option>
+
+                                    </select>
+
+                                </div>
+                            }
+                    else
+                    {
+                        <b>@task.Title</b>
+                    }
+
+                    <br />
+
+                    <small>
+                        Due: @task.DueDate.ToShortDateString()
+                    </small>
+                    <br />
+
+                    <small style="
+                        color:@GetPriorityColor(task.Priority)">
+    
+                        Priority: @task.Priority
+
+                    </small>
+
+                </span>
+
+                <div>
+
+                    <button class="btn btn-success btn-sm me-2"
+                            @onclick="() => ToggleComplete(task)">
+
+                        @(task.IsCompleted ? "Undo" : "Complete")
+
+                    </button>
+
+                    @if (editingTask == task)
+                    {
+                        <button class="btn btn-primary btn-sm me-2"
+                                @onclick="SaveEdit">
+
+                            Save
+
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-warning btn-sm me-2"
+                                @onclick="() => StartEdit(task)">
+
+                            Edit
+
+                        </button>
+                    }
+
+                    <button class="btn btn-danger btn-sm"
+                            @onclick="() => DeleteTask(task)">
+
+                        Delete
+
+                    </button>
+
+                </div>
+
+            </li>
+        }
+
+    </ul>
+}
+else
+{
+    @if (tasks.Any())
+    {
+        <p>No matching tasks found.</p>
+    }
+    else
+    {
+        <p>No tasks added yet.</p>
+    }
+}
+
+@code {
+
+    string newTaskTitle = string.Empty;
+    string searchText = string.Empty;
+    bool isDarkMode = false;
+    string taskTitleError = "";
+    string dueDateError = "";
+    DateTime editedDueDate;
+    TaskPriority editedPriority;
+
+    List<TaskItem> tasks = new();
+
+    TaskItem? editingTask = null;
+
+    string editedTitle = string.Empty;
+
+    string GetThemeClass()
+    {
+        return isDarkMode
+            ? "bg-dark text-white"
+            : "bg-light text-dark";
+    }
+
+    async Task ToggleTheme()
+    {
+        isDarkMode = !isDarkMode;
+
+        await localStorage.SetItemAsync(
+            "darkmode",
+            isDarkMode);
+    }
+    async Task Logout()
+    {
+        authService.Logout();
+
+        navigation.NavigateTo("/login");
+    }
+            async Task AddTask()
+            {
+                if (string.IsNullOrWhiteSpace(newTaskTitle))
+                {
+                    await JS.InvokeVoidAsync(
+                            "showAlert",
+                            "Task name is required");
+
+                    return;
+                }
+
+                var task = new TaskItem
+                {
+                    Title = newTaskTitle,
+                    DueDate = newTaskDueDate,
+                    Priority = newTaskPriority,
+                    UserEmail = authService.UserEmail
+                };
+
+                db.Tasks.Add(task);
+
+                await db.SaveChangesAsync();
+
+                tasks = await db.Tasks
+                .Where(t => t.UserEmail == authService.UserEmail)
+                .ToListAsync();
+
+                // SUCCESS ALERT
+                await JS.InvokeVoidAsync(
+                "showSuccess",
+                "Task added successfully");
+
+                newTaskTitle = "";
+
+                newTaskDueDate = DateTime.Today;
+
+                newTaskPriority = TaskPriority.Low;
+            }
+
+    IEnumerable<TaskItem> FilteredTasks()
+    {
+        var filtered = currentFilter switch
+        {
+            "Completed" => tasks.Where(t => t.IsCompleted),
+
+            "Pending" => tasks.Where(t => !t.IsCompleted),
+
+            _ => tasks
+        };
+
+        return filtered.Where(t =>
+            t.Title.Contains(searchText,
+            StringComparison.OrdinalIgnoreCase));
+    }
+    DateTime newTaskDueDate = DateTime.Today;
+    string currentFilter = "All";
+
+    void StartEdit(TaskItem task)
+    {
+        editingTask = task;
+
+        editedTitle = task.Title;
+
+        editedDueDate = task.DueDate;
+
+        editedPriority = task.Priority;
+    }
+
+    async Task SaveEdit()
+    {
+        if (editingTask != null)
+        {
+            editingTask.Title = editedTitle;
+
+            editingTask.DueDate = editedDueDate;
+
+            editingTask.Priority = editedPriority;
+
+            db.Tasks.Update(editingTask);
+
+            await db.SaveChangesAsync();
+
+            tasks = await db.Tasks.Where(t => t.UserEmail == authService.UserEmail).ToListAsync();
+
+            editingTask = null;
+        }
+    }
+
+    TaskPriority newTaskPriority = TaskPriority.Low;
+
+    string GetPriorityColor(TaskPriority priority)
+    {
+        return priority switch
+        {
+            TaskPriority.High => "red",
+
+            TaskPriority.Medium => "orange",
+
+            _ => "green"
+        };
+    }
+    protected override void OnInitialized()
+    {
+        if (!authService.IsLoggedIn)
+        {
+            navigation.NavigateTo("/login");
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            tasks = await db.Tasks
+                .Where(t => t.UserEmail == authService.UserEmail)
+                .ToListAsync();
+
+            isDarkMode = await localStorage
+                .GetItemAsync<bool>("darkmode");
+
+            StateHasChanged();
+        }
+    }
+
+    async Task ToggleComplete(TaskItem task)
+    {
+        task.IsCompleted = !task.IsCompleted;
+
+        db.Tasks.Update(task);
+
+        await db.SaveChangesAsync();
+
+        tasks = await db.Tasks
+            .Where(t => t.UserEmail == authService.UserEmail)
+            .ToListAsync();
+    }
+
+    async Task DeleteTask(TaskItem task)
+    {
+        db.Tasks.Remove(task);
+
+        await db.SaveChangesAsync();
+
+        tasks = await db.Tasks
+            .Where(t => t.UserEmail == authService.UserEmail)
+            .ToListAsync();
+    }
+
+}
+
+</div>
+
+</div>

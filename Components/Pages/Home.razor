@@ -1,0 +1,14 @@
+﻿@page "/"
+
+@using Microsoft.AspNetCore.Components
+
+@inject NavigationManager Navigation
+
+<h3>Redirecting...</h3>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Navigation.NavigateTo("/tasks");
+    }
+}

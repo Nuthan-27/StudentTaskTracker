@@ -1,0 +1,126 @@
+﻿@page "/login"
+
+@inject StudentTaskTracker.Services.AuthService authService
+@inject NavigationManager navigation
+
+<div class="container vh-100 d-flex justify-content-center align-items-center">
+
+    <div class="card shadow p-4"
+         style="width: 400px; border-radius: 15px;">
+
+        <h2 class="text-center text-primary mb-4">
+            Login
+        </h2>
+
+        @if (!string.IsNullOrEmpty(emailError))
+        {
+            <small class="text-danger">
+                @emailError
+            </small>
+        }
+        <input class="form-control mb-3"
+               placeholder="Email"
+               @bind="email" />
+
+        @if (!string.IsNullOrEmpty(passwordError))
+        {
+            <small class="text-danger">
+                @passwordError
+            </small>
+        }
+        <div class="input-group mb-3">
+
+            <input type="@(showPassword ? "text" : "password")"
+                   class="form-control"
+                   placeholder="Password"
+                   @bind="password" />
+
+            <button class="btn btn-secondary"
+                    type="button"
+                    @onclick="TogglePassword">
+
+                @(showPassword ? "Hide" : "Show")
+
+            </button>
+
+        </div>
+
+        <button class="btn btn-primary w-100"
+                @onclick="HandleLogin">
+
+            Login
+
+        </button>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <p class="text-danger text-center mt-3">
+                @errorMessage
+            </p>
+        }
+        <button class="btn btn-link mt-3"
+                @onclick='() => navigation.NavigateTo("/signup")'>
+
+            Create New Account
+
+        </button>
+    </div>
+
+</div>
+
+@code {
+
+    string email = "";
+
+    string password = "";
+
+    string errorMessage = "";
+
+    bool showPassword = false;
+
+    string emailError = "";
+
+    string passwordError = "";
+
+    async Task HandleLogin()
+    {
+        emailError = "";
+        passwordError = "";
+        errorMessage = "";
+
+        bool isValid = true;
+
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains("@"))
+        {
+            emailError = "Enter a valid email address";
+            isValid = false;
+        }
+
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            passwordError = "Password is required";
+            isValid = false;
+        }
+
+        if (!isValid)
+        {
+            return;
+        }
+
+        bool success = await authService.Login(email, password);
+
+        if (success)
+        {
+            navigation.NavigateTo("/tasks");
+        }
+        else
+        {
+            errorMessage =
+                "Invalid email or password";
+        }
+    }
+    void TogglePassword()
+    {
+        showPassword = !showPassword;
+    }
+}

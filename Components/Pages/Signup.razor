@@ -1,0 +1,124 @@
+﻿@page "/signup"
+
+@inject StudentTaskTracker.Services.AuthService authService
+@inject NavigationManager navigation
+
+<div class="container vh-100 d-flex justify-content-center align-items-center">
+
+    <div class="card shadow p-4"
+         style="width: 400px; border-radius: 15px;">
+
+        <h2 class="text-center text-primary mb-4">
+            Sign Up
+        </h2>
+
+        <input class="form-control mb-2"
+               placeholder="Email"
+               @bind="email" />
+
+        @if (!string.IsNullOrEmpty(emailError))
+        {
+            <small class="text-danger">
+                @emailError
+            </small>
+        }
+
+        <input type="password"
+               class="form-control mb-2"
+               placeholder="Password"
+               @bind="password" />
+
+        <input type="password"
+               class="form-control mb-2"
+               placeholder="Confirm Password"
+               @bind="confirmPassword" />
+
+        @if (!string.IsNullOrEmpty(passwordError))
+        {
+            <small class="text-danger">
+                @passwordError
+            </small>
+        }
+
+        <button class="btn btn-primary w-100 mt-3"
+                @onclick="HandleSignup">
+
+            Create Account
+
+        </button>
+
+        @if (!string.IsNullOrEmpty(message))
+        {
+            <p class="text-center mt-3 text-danger">
+                @message
+            </p>
+        }
+
+        <button class="btn btn-link mt-2"
+                @onclick='() => navigation.NavigateTo("/login")'>
+
+            Already have an account? Login
+
+        </button>
+
+    </div>
+
+</div>
+
+@code {
+
+    string email = "";
+
+    string password = "";
+
+    string confirmPassword = "";
+
+    string message = "";
+
+    string emailError = "";
+
+    string passwordError = "";
+
+    async Task HandleSignup()
+    {
+        emailError = "";
+        passwordError = "";
+        message = "";
+
+        bool isValid = true;
+
+        if (string.IsNullOrWhiteSpace(email) ||
+            !email.Contains("@"))
+        {
+            emailError = "Enter valid email";
+            isValid = false;
+        }
+
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            passwordError = "Password is required";
+            isValid = false;
+        }
+
+        if (password != confirmPassword)
+        {
+            passwordError = "Passwords do not match";
+            isValid = false;
+        }
+
+        if (!isValid)
+        {
+            return;
+        }
+
+        bool success = await authService.Register(email, password);
+        if (success)
+        {
+            navigation.NavigateTo("/login");
+        }
+        else
+        {
+            message = "Email already exists";
+        }
+    }
+}
